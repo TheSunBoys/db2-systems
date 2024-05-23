@@ -1,0 +1,78 @@
+-- criação das tabelas
+-- lembre-se o formato DATE do sql é : ano/mes/dia
+CREATE TABLE produtos (
+  id_produto serial primary key, 
+  nome text not null,
+  quantidade_estoque integer not null,
+  preco decimal not null
+);
+
+create table vendas (
+  id_venda serial primary key,
+  produto_id serial references produtos (id_produto),
+  quantidade integer not null,
+  data_venda date not null default current_date
+); 
+
+create table alertas (
+  mensagem text not null,
+  hora_alerta time not null default current_time
+);
+
+
+-- criação de procedures
+create or replace procedure inserir_produto (
+  nome text, quantidade integer, preco decimal)
+language plpgsql
+as $$
+begin
+  insert into produtos (nome, quantidade_estoque, preco)
+  values (nome, quantidade, preco);
+end;$$;
+
+create or replace procedure registrar_venda(
+  produto_id integer, quantidade integer, data_venda date)
+language plpgsql
+as $$
+begin 
+  
+  if quantidade_estoque > quantidade from produtos where id_produto = produto_id then
+    update produtos set quantidade_estoque = quantidade_estoque - quantidade where id_produto = produto_id;
+    insert into vendas (produto_id,quantidade,data_venda)
+    values (produto_id, quantidade, data_venda);
+    raise notice 'venda realizada!';
+  else
+    quantidade = quantidade_estoque from produtos where id_produto = produto_id;
+    update produtos set quantidade_estoque = quantidade_estoque - quantidade;
+    raise notice 'o estoque atualmente esta vazio.';
+  end if;
+  
+end;$$;
+
+-- crição de triggers 
+CREATE or replace FUNCTION alertar() 
+   RETURNS TRIGGER 
+   LANGUAGE PLPGSQL
+AS $alertar$
+BEGIN
+    if new.quantidade_estoque <= 20 then
+      insert into alertas values ('alerta de estoque!',now());
+      raise notice 'o estoque precisa ser reabastecido.';
+    end if;
+    return new;
+END;
+$alertar$;
+
+create or replace trigger alertar_estoque
+after update on produtos
+for each row execute procedure alertar();
+
+-- seleção das tabelas
+call inserir_produto('pao', 50, 0.50);
+select * from produtos;
+call registrar_venda(1, 15, '2024-05-15');
+call registrar_venda(1, 30, '2024-05-16');
+\echo novos produtos
+select * from vendas;
+select * from produtos; 
+--select * from alertas;

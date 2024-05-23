@@ -1,0 +1,54 @@
+--drop table if exists livros cascade;
+--drop table if exists emprestimos cascade;
+
+create table livros (
+	bookId SERIAL primary key,
+	titulo text not null,
+	autor text not null,
+	ano_publicado int,
+	disponivel boolean default true
+);
+
+insert into livros (titulo, autor, ano_publicado) values ('Jurassic Park','Michael Crichton',1990);
+insert into livros (titulo, autor, ano_publicado) values ('Lost World','Michael Crichton',1995);
+insert into livros (titulo, autor, ano_publicado) values ('Frankenstein','Mary Shelly',1818);
+
+create table emprestimos (
+	id_emprestimo SERIAL primary key,
+	livroId int references livros (bookId),
+	data_emprestimo date not null,
+	data_devolucao date
+);
+
+--criação de procedures
+create or replace procedure realizar_emprestimo (
+  id_livro integer,
+  data_emprestimo date)
+language plpgsql
+as $$
+begin 
+  if disponivel = true from livros where bookId = id_livro then 
+  insert into emprestimos (livroId,data_emprestimo) values (id_livro, data_emprestimo);
+  update livros set disponivel = false where bookId = id_livro;
+  end if;
+end;$$;
+
+--criação dos triggers
+create or replace function registro_disponivel()
+returns trigger
+language plpgsql
+as $registro_disponivel$
+begin 
+  new.disponivel := false;
+  return new;
+end;$registro_disponivel$;
+
+create or replace trigger registrar
+after update on livros
+for each row execute function registro_disponivel();
+
+select * from livros;
+select * from emprestimos;
+call realizar_emprestimo (2,current_date);
+select * from emprestimos;
+select * from livros where disponivel = false;
