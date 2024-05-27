@@ -20,6 +20,17 @@ create table emprestimos (
 	data_devolucao date
 );
 
+create or replace procedure atualizar_livro (
+  id_livro integer,
+  new_title text)
+language plpgsql
+as $$
+begin
+  update livros set titulo = new_title where bookId = id_livro
+end;$$;
+
+atualizar_livro(1, "Shazam")
+
 --criação de procedures
 create or replace procedure realizar_emprestimo (
   id_livro integer,
