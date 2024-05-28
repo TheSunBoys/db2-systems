@@ -1,0 +1,41 @@
+-- create das tables
+
+create table quartos(
+   id_quarto serial primary key not null,
+   numero integer not null,
+   tipo text not null,
+   preco_diaria decimal not null,
+   status text not null default 'disponivel'
+);
+
+create table clientes(
+  id_cliente serial primary key,
+  nome text not null,
+  email text,
+  telefone text not null,
+  unique(email)
+);
+
+create table reservas(
+  id_reserva serial primary key,
+  cliente_id integer references clientes (id_cliente),
+  quarto_id integer references quartos (id_quarto),
+  data_entrada date not null default current_date,
+  data_saida date not null,
+  valor_total decimal
+);
+
+create table notificacoes(
+  mensagem text default 'status do quarto alterado'
+);
+
+insert into quartos (numero,tipo,preco_diaria) values (245,'normal',800);
+select * from quartos;
+-- insert
+/*INSERT INTO EMPLOYEE VALUES (0001, 'Clark', 'Sales');
+INSERT INTO EMPLOYEE VALUES (0002, 'Dave', 'Accounting');
+INSERT INTO EMPLOYEE VALUES (0003, 'Ava', 'Sales');
+
+-- fetch 
+SELECT * FROM EMPLOYEE WHERE dept = 'Sales';
+*/
