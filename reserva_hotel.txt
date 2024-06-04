@@ -1,0 +1,131 @@
+-- create das tables
+
+create table quartos(
+   id_quarto serial primary key not null,
+   numero integer not null,
+   tipo text not null,
+   preco_diaria decimal not null,
+   status text not null default 'disponivel'
+);
+
+create table clientes(
+  id_cliente serial primary key not null,
+  nome text not null,
+  email text not null,
+  telefone text not null,
+  unique(email)
+);
+
+create table reservas(
+  id_reserva serial primary key,
+  cliente_id integer references clientes (id_cliente),
+  quarto_id integer references quartos (id_quarto),
+  data_entrada date not null default current_date,
+  data_saida date not null,
+  valor_total decimal
+);
+
+create table notificacoes(
+  mensagem text default 'status do quarto alterado',
+  hora_mensagem time default now()
+);
+
+--procedures e o escambau
+
+create or replace procedure adicionar_quarto(
+  numero_quarto integer, tipo_quarto text, preco_diaria_quarto decimal, status_quarto text)
+language plpgsql
+as $$
+begin
+  insert into quartos (numero, tipo, preco_diaria, status)
+  values (numero_quarto, tipo_quarto, preco_diaria_quarto, status_quarto);
+end;$$;
+
+create or replace procedure adicionar_cliente(
+  nome_cliente text, email_cliente text, telefone_cliente int)
+language plpgsql
+as $$
+begin
+  insert into clientes (nome,email,telefone)
+  values (nome_cliente,email_cliente,telefone_cliente);
+end;$$;
+
+call adicionar_quarto(245,'normal',22.35,'disponivel');
+call adicionar_quarto(101,'prestigio',30,'disponivel');
+
+--
+call adicionar_cliente('Alejandro','ale.1984@email.com', 39890009);
+call adicionar_cliente('Markos','MK_awsome@email.com', 30017716);
+call adicionar_cliente('Eriza','hotB@email.com', 22038900);
+select * from quartos;
+select * from clientes;
+--
+
+create or replace procedure efetuar_reserva(
+  clienteId int, quartoId int, dataEntrada date, dataSaida date)
+language plpgsql
+as $$
+declare
+  preco_total decimal;
+  preco_diaria decimal = preco_diaria from quartos where id_quarto = quartoId;
+  data_entrada date = data_entrada from reservas;
+  data_saida date = data_saida from reservas;
+begin
+  if not (dataEntrada,dataSaida) overlaps (data_entrada,data_saida) 
+  or (select exists (select * from reservas)) = false then 
+    preco_total = (dataSaida - dataEntrada) * preco_diaria;
+    insert into reservas (cliente_id,quarto_id,data_entrada,data_saida,valor_total)
+    values (clienteId,quartoId,dataEntrada,dataSaida,preco_total);
+    update quartos set status = 'ocupado' where id_quarto = quartoId;
+  end if;
+end;$$;
+
+create or replace procedure cancelar_reserva(
+  id_reserva int)
+language plpgsql
+as $$
+begin
+  
+end;$$;
+
+-- cração de triggers
+
+create or replace function att_status_quarto()
+returns trigger 
+language plpgsql
+as $att_status_quarto$
+begin 
+  update quartos set status = 'disponivel' where id_quarto = new.quarto_id;
+  raise notice 'reserva liberada';
+  return null;
+end;$att_status_quarto$;
+
+create or replace trigger atualizar_status_quarto
+after insert on reservas
+for each row 
+when(current_date >= new.data_saida)
+execute function att_status_quarto();
+
+create or replace function enviar_notificacao()
+returns trigger 
+language plpgsql
+as $enviar_notificacao$
+begin 
+  insert into notificacoes values (default, now());
+  raise notice 'notificação emitida';
+  return null;
+end;$enviar_notificacao$;
+
+create or replace trigger notificar
+after update on quartos
+for each row
+execute function enviar_notificacao();
+
+--call para efetuar reservas
+
+call efetuar_reserva(2,1,'2024-03-12','2024-05-15');
+--select * from quartos;
+--call efetuar_reserva(1,1,'2024-06-13','2024-06-25');
+select * from reservas;
+--update quartos set tipo = 'familia' where id_quarto = 2;
+select * from quartos;
