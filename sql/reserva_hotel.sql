@@ -68,10 +68,10 @@ as $$
 declare
   preco_total decimal;
   preco_diaria decimal = preco_diaria from quartos where id_quarto = quartoId;
-  data_entrada date = data_entrada from reservas;
-  data_saida date = data_saida from reservas;
+  data_entrada date = data_entrada from reservas limit 1;
+  data_saida date = data_saida from reservas limit 1;
 begin
-  if not (dataEntrada,dataSaida) overlaps (data_entrada,data_saida) 
+  if (not (dataEntrada,dataSaida) overlaps (data_entrada,data_saida))
   or (select exists (select * from reservas)) = false then 
     preco_total = (dataSaida - dataEntrada) * preco_diaria;
     insert into reservas (cliente_id,quarto_id,data_entrada,data_saida,valor_total)
@@ -81,11 +81,13 @@ begin
 end;$$;
 
 create or replace procedure cancelar_reserva(
-  id_reserva int)
+  reserva_id int)
 language plpgsql
 as $$
 begin
-  
+  delete from reservas where id_reserva = reserva_id;
+  update quartos set status = 'disponivel' where id_quarto = (select quarto_id from reservas where id_reserva = reserva_id );
+  raise notice 'reserva cancelada';
 end;$$;
 
 -- cração de triggers
@@ -121,11 +123,24 @@ after update on quartos
 for each row
 execute function enviar_notificacao();
 
+--criação do view
+
+create or replace view relatorio_reserva (tipo_quarto, reservas_realizadas, receita_total)
+as select quartos.tipo, count(quarto_id), sum(reservas.valor_total) from reservas
+inner join quartos on quartos.id_quarto = reservas.quarto_id
+group by tipo;
+
 --call para efetuar reservas
 
 call efetuar_reserva(2,1,'2024-03-12','2024-05-15');
+call efetuar_reserva(1,1,'2024-06-13','2024-06-25');
+call efetuar_reserva(3,2,'2024-07-12','2024-07-26');
+call efetuar_reserva(3,2,'2024-08-08','2024-08-10');
+call efetuar_reserva(2,1,'2024-09-13','2024-09-30');
 --select * from quartos;
---call efetuar_reserva(1,1,'2024-06-13','2024-06-25');
-select * from reservas;
 --update quartos set tipo = 'familia' where id_quarto = 2;
+--call cancelar_reserva(1);
+select * from reservas;
 select * from quartos;
+select * from relatorio_reserva;
+--select pg_typeof(id_quarto) from quartos;
